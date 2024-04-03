@@ -1,0 +1,16 @@
+name: deploy
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy_prod:
+    runs-on: [self-hosted]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+             rm -rf ~/ossbot/files
+             cp -R ./ ~/ossbot/files
+             ~/ossbot/push.sh
+        shell: bash
