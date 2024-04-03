@@ -390,3 +390,6 @@ fabric.properties
 .well-known
 stderr.log
 tmp
+
+# .env
+.env
