@@ -26,6 +26,40 @@ const groupId = process.env.GROUP_ID;
 
 const adminIds = process.env.ADMIN_IDS.split(',');
 
+const OpenAIApi = require('openai');
+const openai = new OpenAIApi.OpenAI({
+    baseURL: process.env.OPENAI_BASE_URL,
+    apiKey: process.env.OPENAI_TOKEN,
+});
+
+const conversations = new Object();
+
+async function chatWithGPT(userId, message) {
+    if (conversations[userId] === undefined) {
+        conversations[userId] = [
+            { role: 'system', content: process.env.OPENAI_PROMPTS || 'You are an assistant that speaks like a professor.' },
+        ];
+    }
+    conversations[userId].push({ role: 'user', content: message });
+    const conversation = conversations[userId];
+    const chatCompletion = await openai.chat.completions.create({
+        messages: conversation,
+        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        stream: false,
+        max_tokens: 100,
+        n: 1,
+        best_of: 1,
+        temperature: 0.4,
+        stop: "\n"
+    });
+    conversation.push({ role: 'assistant', content: chatCompletion.choices[0].message.content });
+    if (conversation.length > 3) {
+        conversation.shift();
+    }
+    return chatCompletion.choices[0].message.content;
+}
+
+
 
 const replyText = (token, texts) => {
     texts = Array.isArray(texts) ? texts : [texts];
@@ -124,10 +158,11 @@ async function handleGroupMessage(message, replyToken, source) {
     console.log(`handleGroupMessage: ${replyToken} ${JSON.stringify(message)}}`);
     if (source.groupId === groupId && message.text.startsWith('@bot')) {
         // let messageText = message.text.substring(4).trim();
-        let response = 'Yes, how can I help you?';
-        if (adminIds.includes(source.userId)) {
-            response = 'hi, how can I help you?';
-        }
+        // let response = 'Yes, how can I help you?';
+        // if (adminIds.includes(source.userId)) {
+        //     response = 'hi, how can I help you?';
+        // }
+        let response = await chatWithGPT(source.userId, message.text);
         return replyText(replyToken, response);
     }
 }
@@ -154,8 +189,9 @@ async function handlePrivateMessage(message, replyToken, source) {
             }
         default:
             // console.log(`Echo message to ${replyToken}: ${message.text}`);
-            // return replyText(replyToken, message.text);
-            return console.log(`handlePrivateMessage: ${replyToken} ${JSON.stringify(message)}}`);
+            let response = await chatWithGPT(source.userId, message.text);
+            return replyText(replyToken, response);
+            // return console.log(`handlePrivateMessage: ${replyToken} ${JSON.stringify(message)}}`);
     }
 }
 
